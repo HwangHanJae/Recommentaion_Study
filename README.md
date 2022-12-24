@@ -5,4 +5,4 @@
 
 ## [추천 시스템(책)](https://github.com/HwangHanJae/Recommentaion_Study/tree/main/book_Recommender_Systems)
 
-##[카카오 추천팀](https://github.com/kakao/recoteam)
+## [카카오 추천팀](https://github.com/kakao/recoteam)

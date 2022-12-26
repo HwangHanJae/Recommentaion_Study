@@ -1,7 +1,7 @@
 import os
 from evaluation import ndcg
 from solution import Model
-number = str(1)
+number = str(6)
 base_input_path = os.getcwd()+'\\testcase\input'
 base_output_path = os.getcwd()+'\\testcase\output'
 input_file = f'input00{number}.txt'
@@ -50,10 +50,14 @@ f.close()
 
 #solve
 model =Model(matrix, num_users, num_items, num_sim_user_top_N, num_item_rec_top_N)
+scores = []
 for i in range(len(active_users)):
   rec = model.recommend(active_users[i])
   gt = gts[i]
-  print(ndcg(gt, rec))
+  scores.append(ndcg(gt, rec))
+
+print(f"ndcg 평균 : {(sum(scores) / len(scores))}")
+
 
 
 

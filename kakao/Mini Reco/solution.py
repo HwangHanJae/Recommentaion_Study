@@ -6,58 +6,64 @@ class Model():
     self.num_sim_user_top_N = num_sim_user_top_N
     self.num_item_rec_top_N = num_item_rec_top_N
     self.simil_matrix = self._get_simil_matrix()
-    
+    self.null_item_matrix = self._get_null_item_matrix()
+    self.mean_matrix = self._get_mean_matrix()
+    self.U = self._get_U()
+    self.user_rating_items = self._get_rating_item_matrix()
 
-  def _get_I(self, x=None, y=None):
+  def _get_Ixy(self, x, y):
     """
-    사용자가 평가한 아이템 집합을 구하는 함수
+    사용자 x, y 모두가 평가한 아이템 집합을 구하는 함수
+    """
+
+    Ixy = set()
+    for i in range(1, self.num_items+1):
+      if self.R[x][i] != None and self.R[y][i] != None:
+        Ixy.add(i)
+    return Ixy
+  
+  def _get_I(self, u):
+    """
+    사용자(u)가 평가한 아이템 집합을 구하는 함수
     """
     I = set()
-    #사용자 x,y 모두가 평가한 아이템 집합
-    if x != None and y != None:
-      for i in range(1, self.num_items+1):
-        if self.R[x][i] != None and self.R[y][i] != None:
-          I.add(i)
-      return I
-    #사용자 x가 평가한 아이템집합
-    elif x != None and y == None:
-      for i in range(1, self.num_items+1):
-        if self.R[x][i] != None:
-          I.add(i)
-      return I
-    #사용자 y가 평가한 아이템집합
-    elif x == None and y != None:
-      for i in range(1, self.num_items+1):
-        if self.R[y][i] != None:
-          I.add(i)
-      return I
-    
+    for i in range(1, self.num_items+1):
+      if self.R[u][i] != None:
+        I.add(i)
+    return I
+
   def _simil(self, x, y):
       """
       사용자 x, y의 코사인 유사도를 구하는 함수
       """
-      Ixy = self._get_I(x, y)
-      Ix = self._get_I(x, y=None)
-      Iy = self._get_I(x=None, y=y)
+      Ixy = self._get_Ixy(x, y)
+      Ix = self._get_I(x)
+      Iy = self._get_I(y)
+
       rxi2s = []
       ryi2s = []
-      a = 0
+      numerator = []
       for i in Ixy:
         rxi = self.R[x][i]
         ryi = self.R[y][i]
-        a += (rxi * ryi)
+        numerator.append((rxi*ryi))
       
       for i in Ix:
         rxi = self.R[x][i]
-        rxi2s.append(rxi ** 2)
+        rxi2s.append((rxi ** 2))
       
       for i in Iy:
         ryi = self.R[y][i]
-        ryi2s.append(ryi ** 2)
+        ryi2s.append((ryi ** 2))
       
-      b = (sum(rxi2s)**0.5) * (sum(ryi2s) ** 0.5)
-      
-      return (a / b)
+      numerator = sum(numerator)
+      denominator = (sum(rxi2s)**0.5) * (sum(ryi2s) ** 0.5)
+      #Cosine similarity 계산이 정의되지 않는 경우
+      #zero division error가 나올때
+      if denominator == 0:
+        return 0
+      else:
+        return (numerator / denominator)
     
   def _get_simil_matrix(self):
       """
@@ -67,85 +73,124 @@ class Model():
       for x in range(1,self.num_users+1):
         simil_matrix[x] = {}
         for y in range(1, self.num_users+1):
-          simil_matrix[x][y] = 0
+          simil_matrix[x][y] = None
 
       for x in range(1, self.num_users+1):
         for y in range(1, self.num_users+1):
           if x == y:
             simil_matrix[x][y] = 1
           else:
-            try :
-              simil_matrix[x][y] = self._simil(x, y)
-            except:
-              simil_matrix[x][y] = 0
+            simil_matrix[x][y] = self._simil(x, y)
       return simil_matrix
-    
-  def _get_null_item_idx(self, user_id):
-      """
-      사용자가 아직 평가하지 않은 아이템의 인덱스 구하는 함수
-      """
-      indexs = []
-      for i in self.R[user_id]:
-        if self.R[user_id][i] == None:
-          indexs.append(i)
-      return indexs
-    
-  def _get_mean(self,user_id):
-      """
-      유저의 평균을 구하는 함수
-      """
-      lst = []
-      for i in self.R[user_id]:
-        if self.R[user_id][i] != None:
-          lst.append(self.R[user_id][i])
-      return sum(lst) / len(lst)
-  def _get_U(self, user_id):
-    sorted_simil_matrix = sorted(self.simil_matrix[user_id].items(), key = lambda x : x[1], reverse=True)
-    peergroup = []
-    for i in range(1, len(sorted_simil_matrix[:self.num_sim_user_top_N+1])):
-      user_id = sorted_simil_matrix[i][0]
-      simil = sorted_simil_matrix[i][1]
-      peergroup.append(user_id)
-    return peergroup
-  def _get_k(self, user_id):
-    U = self._get_U(user_id)
-    k = 0
-    try:
-      for u_prime in U:
-        k += abs(self._simil(user_id, u_prime))
-      k = (1 / k)
-    except:
-      k = 0
-    return k, U
+  def _get_rating_item_matrix(self):
+    """
+    사용자가 평가한 아이템 매트릭스를 구하는 함수
 
-  def recommend(self, user_id):
-    item_ids = self._get_null_item_idx(user_id)
-    k, U = self._get_k(user_id)
-    ru = self._get_mean(user_id)
+    """
+    matrix = {}
+    for u in range(1, self.num_users+1):
+      matrix[u] = None
+    for u in range(1, self.num_users+1):
+      items = set()
+      for i in range(1, self.num_items+1):
+        if self.R[u][i] != None:
+          items.add(i)
+      matrix[u] = items
+    return matrix
+
+  def _get_null_item_matrix(self):
+      """
+      사용자가 아직 평가하지 않은 아이템 매트릭스를 구하는 함수
+      """
+      matrix = {}
+      
+      for u in range(1,self.num_users+1):
+        matrix[u] = None
+      
+      for u in range(1, self.num_users+1):
+        items = set()
+        for i in range(1, self.num_items+1):
+          if self.R[u][i] == None:
+            items.add(i)
+        matrix[u] = items
+      return matrix
+    
+  def _get_mean_matrix(self):
+      """
+      유저의 평균 매트릭스를 구하는 함수
+      """
+      matrix = {}
+      for u in range(1, self.num_users+1):
+        values = []
+        for i in range(1, self.num_items+1):
+          if self.R[u][i] == None:
+            pass
+          else:
+            values.append(self.R[u][i])
+        mean = sum(values) / len(values)
+        matrix[u] = mean
+      return matrix
+
+  def _get_U(self):
+    """
+    아이템  i 를 평가한 사용자 u와 가장 유사한 상위 N명의 사용자 집합(피어그룹) U 매트릭스를 구하는 함수
+    """
+    matrix = {}
+    
+    for u in range(1, self.num_users+1):
+      peergroup = []
+      sorted_simil_matrix = sorted(self.simil_matrix[u].items(), key = lambda x : x[1], reverse=True)
+      for i in range(1, len(sorted_simil_matrix)):
+        user = sorted_simil_matrix[i][0]
+        peergroup.append(user)
+      matrix[u] = peergroup[:self.num_sim_user_top_N]
+
+    return matrix
+  def _get_k(self, u):
+    sum_value = 0
+    for u_prime in self.U[u]:
+      sum_value += abs(self.simil_matrix[u][u_prime])
+    #식 (1)에서 normalizing factor  k  값이 정의되지 않은 경우에는 0으로 정의
+    #zero division error가 나올때
+    if sum_value == 0:
+      return 0
+    else:
+      return (1 / sum_value)
+
+  def _get_rui(self, u, i):
+    ru = self.mean_matrix[u]
+    k = self._get_k(u)
+
+    sum_value = 0
+    for u_prime in self.U[u]:
+      r_uprime_i = self.R[u_prime][i]
+      r_uprime_bar = self.mean_matrix[u_prime] 
+      if r_uprime_i == None:
+        sum_value += 0
+      else:
+        sum_value += self.simil_matrix[u][u_prime] * (r_uprime_i - r_uprime_bar)
+
+    return ru + (k * sum_value)
+  
+  def recommend(self,u):
+    null_items = self.null_item_matrix[u]
+    u_prime_rating_items = set()
+    recommendation = []
+    for u_prime in self.U[u]:
+      u_prime_rating_items = u_prime_rating_items.union(self.user_rating_items[u_prime])
+    recom_items = null_items.intersection(u_prime_rating_items)
+    
     result = []
-    simil = 0
-    for u_prime in U:
-      simil += self._simil(user_id,u_prime)
-    for u_prime in U:
-      sum_value = 0
-      # 사용자에게 추천해야 하는 아이템들
-      for i in item_ids:
-        #실제값이 None인 값들 
-        if self.R[u_prime][i] == None:
-          pass
-        #실제값이 None이 아닌 값들
-        else:
-          result.append([i, ru+(k *simil*(self.R[u_prime][i] - self._get_mean(u_prime)))])
-    
-    if len(item_ids) < self.num_item_rec_top_N:
-      self.num_item_rec_top_N = len(item_ids)
+    for i in recom_items:
+      rui = self._get_rui(u, i)
+      result.append([i, rui])
 
-    result_dic = {}
-    for item, rating in result:
-      result_dic[item] = result_dic.get(item, 0) + rating
-    sorted_result = sorted(result_dic.items(), key=lambda x: x[1], reverse=True)[:self.num_item_rec_top_N]
-    
-    recommendation = [item for item, rating in sorted_result]
-    
-    return recommendation
-    
+    result.sort(key=lambda x : x[1], reverse=True)
+
+    for i in range(len(result)):
+      item = result[i][0]
+      recommendation.append(item)
+    if len(recommendation) < self.num_item_rec_top_N:
+      self.num_item_rec_top_N = len(recommendation) 
+    return recommendation[:self.num_item_rec_top_N]
+

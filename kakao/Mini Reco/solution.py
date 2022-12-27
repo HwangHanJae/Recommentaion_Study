@@ -194,3 +194,102 @@ class Model():
       self.num_item_rec_top_N = len(recommendation) 
     return recommendation[:self.num_item_rec_top_N]
 
+
+
+import numpy as np
+import pandas as pd
+from sklearn.metrics.pairwise import cosine_similarity
+import numpy as np
+import pandas as pd
+from sklearn.metrics.pairwise import cosine_similarity
+class UserBaseCF():
+  def __init__(self, table, num_users, num_items, num_sim_user_top_N, num_item_rec_top_N):
+    """
+    R : 원본테이블
+    S : 원본테이블에서 평균값을 뺀 테이블
+    Cosine : 사용자-사용자 유사도
+    U : 피어그룹(상관계수가 0보다 크고 자기자신이 아님)
+    """
+    self.R = table
+    self.num_users = num_users
+    self.num_items = num_items
+    self.num_sim_user_top_N = num_sim_user_top_N
+    self.num_item_rec_top_N = num_item_rec_top_N
+    self.S = self._get_S()
+    self.Cosine = self._consine_similarity()
+    
+
+  # def _similarity(self, x, y):
+  #   Ixy = self.R.loc[[x,y]].dropna(axis=1).columns
+  #   Ix = self.R.loc[x].dropna().index
+  #   Iy = self.R.loc[y].dropna().index
+    
+  #   numerator = np.sum(self.R.loc[[x,y], Ixy].product(axis=0))
+
+  #   rxi2 = np.sqrt(np.sum(self.R.loc[x, Ix].pow(2)))
+  #   ryi2 = np.sqrt(np.sum(self.R.loc[y, Iy].pow(2)))
+    
+  #   denominator = (rxi2 * ryi2)
+
+    
+  #   return (numerator / denominator)
+
+  def _consine_similarity(self):
+    # matrix = pd.DataFrame()
+    # for x in self.R.index:
+    #   for y in self.R.index:
+    #     matrix.loc[x, y] = self._similarity(x, y)
+
+    temp = self.R.fillna(0)
+
+    matrix = pd.DataFrame(cosine_similarity(temp,temp), index=self.R.index, columns=self.R.index)
+
+    return matrix
+  def _get_U(self, user_id):
+    
+    return self.Cosine.loc[user_id].sort_values(ascending=False)[1:self.num_sim_user_top_N+1].index
+  def _get_S(self):
+    """
+    S 테이블을 만드는 함수
+    
+    """
+    Mu = self.R.mean(axis=1)
+    return (self.R.T - Mu).T
+
+  def _find_item(self,user_id):
+    """
+    유저에게 추천할 수 있는 아이템을 찾는 함수
+    """
+    #유저가 아직 평가하지 않은 아이템
+    user_null_items = set(self.R.loc[user_id, self.R.loc[user_id].isna()].index)
+
+    # 피어그룹이 평가한 아이템 집합
+    # 피어그룹
+    U = self._get_U(user_id)
+    items = set()
+    for u in U:
+      items.update(set(self.R.loc[u, ].dropna().index))
+    recom_items = user_null_items.intersection(items)
+    return recom_items
+  def recommend(self, user_id):
+    """
+    사용자가 아직 평가하지 않은 아이템을 찾고
+    해당 아이템에 대하여 평점을 예측한 뒤 평점이 높은 순으로 인덱스를 반환하는 함수
+
+    """
+    #추천할 수 있는 아이템을 찾음
+    recom_items  = self._find_item(user_id)
+    
+    #유저의 평균
+    Mu = self.R.mean(axis=1).loc[user_id]
+    #피어그룹
+    U = self._get_U(user_id)
+    #계산
+    a  = pd.DataFrame(self.S.loc[U,recom_items]).mul(np.array(self.Cosine.loc[user_id, U]), axis=0).sum(axis=0)
+    
+    b = np.sum(self.Cosine.loc[user_id, U])
+    result = (a / b) + Mu
+    
+    result.sort_values(ascending=False)
+    recommendation = result[recom_items].index[:self.num_item_rec_top_N]
+    return  list(recommendation)

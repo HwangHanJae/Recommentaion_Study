@@ -1,8 +1,8 @@
 import os
 from evaluation import ndcg
-from solution import Model
+from solution import UserBaseCF
 import pandas as pd
-number = str(1)
+number = str(4)
 base_input_path = os.getcwd()+'\\kakao\Mini Reco\\testcase\input'
 base_output_path = os.getcwd()+'\\kakao\Mini Reco\\testcase\output'
 input_file = f'input00{number}.txt'
@@ -19,18 +19,14 @@ num_items = int(lines[3].strip())
 num_rows  = int(lines[4].strip())
 
 #matrix 초기화
-matrix = {}
-for u in range(1,num_users+1):
-  matrix[u] = {}
-  for i in range(1, num_items+1):
-    matrix[u][i] = None
+matrix = pd.DataFrame()
 
 for line in lines[5:num_rows+5]:
   data = line.strip().split()
   u = int(data[0])
   i = int(data[1])
   rating = float(data[2])
-  matrix[u][i] = rating
+  matrix.loc[u, i] = rating
   
 num_reco_users = lines[num_rows+5]
 active_users = []
@@ -50,7 +46,7 @@ for line in lines:
 f.close()
 
 #solve
-model =Model(matrix, num_users, num_items, num_sim_user_top_N, num_item_rec_top_N)
+model =UserBaseCF(matrix, num_users, num_items, num_sim_user_top_N, num_item_rec_top_N)
 scores = []
 for i in range(len(active_users)):
   rec = model.recommend(active_users[i])
@@ -58,9 +54,3 @@ for i in range(len(active_users)):
   scores.append(ndcg(gt, rec))
 
 print(f"ndcg 평균 : {(sum(scores) / len(scores))}")
-
-
-
-
-
-

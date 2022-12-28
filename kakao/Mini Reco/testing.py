@@ -1,9 +1,9 @@
 import os
 from evaluation import ndcg
 from solution import Model
-from Case import Dict_Matrix
+from Case import TestCase
 number = str(1)
-testcase= Dict_Matrix(number)
+testcase= TestCase(number, type_='Dict')
 matrix = testcase.matrix
 num_users = testcase.num_users
 num_items = testcase.num_items
@@ -21,9 +21,4 @@ for i in range(len(active_users)):
   scores.append(ndcg(gt, rec))
 
 print(f"ndcg 평균 : {(sum(scores) / len(scores))}")
-
-
-
-
-
 

@@ -1,10 +1,10 @@
 import os
 from evaluation import ndcg
 from solution import UserBaseCF
-from Case import DataFrame_Matrix
+from Case import TestCase
 import pandas as pd
-number = str(4)
-testcase = DataFrame_Matrix(number)
+number = str(1)
+testcase = TestCase(number, type_='DataFrame')
 matrix = testcase.matrix
 num_users = testcase.num_users
 num_items = testcase.num_items

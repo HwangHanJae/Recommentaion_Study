@@ -1,4 +1,4 @@
-# Recommentaion_Study
+# 추천시스템(recommender_system)
 
 추천시스템을 학습하고 정리한 내용을 올리고 있습니다.
 
